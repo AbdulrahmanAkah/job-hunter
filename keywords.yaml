@@ -2,10 +2,19 @@
 #
 # search_terms: sent to source APIs that support keyword search (Himalayas).
 #   Other sources are fetched as whole feeds and filtered locally.
-# positive / negative: scoring rules. Each rule is either
-#   term:  plain phrase, case-insensitive, matched as whole words
-#   regex: a Python regular expression (case-insensitive)
-# A match in the TITLE counts 1.5x. Final score is clamped to 0..100.
+#
+# Rules (in groups and penalties) are either
+#   term:  plain phrase, case-insensitive, whole words, plural "s" allowed automatically
+#   regex: a Python regular expression (case-insensitive unless case_sensitive: true)
+# Optional per rule:
+#   desc_weight: points when found only in the description (default = weight)
+#   title_only: true  -> only counts when the word is in the title
+#
+# Scoring (see jobhunter/scoring.py):
+#   group points = sum of matched rules (title match = weight x title_multiplier), capped at `cap`
+#   + title_bonus once if a rule with weight >= title_bonus_min_weight is in the title
+#   normalised = 100 x (1 - e^(-raw / scale))   -> 80+ needs raw >= ~1.6 x scale
+#   final = normalised + penalties (each penalty group capped), clamped to 0..100
 # A job must match at least one positive rule to be kept at all.
 
 search_terms:
@@ -28,69 +37,121 @@ remotive_searches:   # Remotive asks for max ~4 calls/day — keep this list at 
   - ai agent
 
 max_age_days: 30      # ignore postings older than this (when the source gives a date)
-min_score: 30         # jobs scoring below this are skipped
+min_score: 20         # jobs scoring below this are skipped
 top_n_for_claude: 15
 description_chars_for_claude: 1200
 
-positive:
-  # --- automation / AI (high) ---
-  - {term: "n8n", weight: 35}
-  - {term: "make.com", weight: 30}
-  - {term: "integromat", weight: 30}
-  - {regex: "\\bmake\\b\\s*(?:/|,|and|or|&)\\s*zapier|zapier\\s*(?:/|,|and|or|&)\\s*\\bmake\\b", label: "Make+Zapier", weight: 30}
-  - {term: "zapier", weight: 30}
-  - {term: "ai agent", weight: 30}   # plurals ("ai agents") match automatically
-  - {term: "agentic", weight: 20}
-  - {term: "ai automation", weight: 35}
-  - {term: "workflow automation", weight: 25}
-  - {term: "automation", weight: 10}
-  - {term: "no-code", weight: 15}
-  - {term: "low-code", weight: 10}
-  - {term: "chatbot", weight: 25}
-  - {term: "python", weight: 10}
-  - {term: "python automation", weight: 25}
-  - {term: "llm", weight: 8}
-  - {term: "openai", weight: 10}
-  - {term: "gpt", weight: 8}
-  - {term: "prompt engineering", weight: 15}
-  - {term: "api integration", weight: 10}
-  - {term: "airtable", weight: 10}
-  # --- video / content (high) ---
-  - {term: "video editor", weight: 30}
-  - {term: "video editing", weight: 25}
-  - {term: "ai video", weight: 35}
-  - {term: "content producer", weight: 30}
-  - {term: "content creator", weight: 20}
-  - {term: "premiere pro", weight: 15}
-  - {term: "after effects", weight: 15}
-  - {term: "capcut", weight: 15}
-  - {term: "davinci resolve", weight: 15}
-  - {term: "runway", weight: 10}
-  - {term: "heygen", weight: 15}
-  - {term: "elevenlabs", weight: 10}
-  # --- Arabic (high) ---
-  - {term: "arabic", weight: 35}
-  - {term: "arabic-speaking", weight: 35}
-  - {regex: "عرب|العربية", label: "Arabic (عربي)", weight: 35}
-  - {term: "mena", weight: 15}
-  - {term: "middle east", weight: 10}
-  # --- seniority that suits ---
-  - {term: "junior", weight: 10}
-  - {term: "entry level", weight: 10}
-  - {term: "freelance", weight: 5}
-  - {term: "contract", weight: 3}
+scoring:
+  title_multiplier: 2
+  title_bonus: 25
+  title_bonus_min_weight: 20
+  scale: 70
 
-negative:
-  - {term: "senior", weight: -10}
-  - {term: "staff engineer", weight: -15}
-  - {term: "principal", weight: -15}
-  - {term: "head of", weight: -10}
-  - {term: "director", weight: -15}
-  - {regex: "(?:[5-9]|1\\d)\\+?\\s*(?:-\\s*\\d+\\s*)?years", label: "5+ years", weight: -20}
-  - {term: "us citizen", weight: -40}
-  - {term: "us citizenship", weight: -40}
-  - {term: "security clearance", weight: -40}
-  - {term: "on-site", weight: -30}
-  - {term: "onsite", weight: -30}
-  - {term: "hybrid", weight: -20}
-  - {term: "relocation", weight: -10}
+groups:
+  automation:
+    cap: 60
+    rules:
+      - {term: "n8n", weight: 30}
+      - {term: "make.com", weight: 25}
+      - {term: "integromat", weight: 25}
+      - {regex: "\\bmake\\b\\s*(?:/|,|and|or|&)\\s*zapier|zapier\\s*(?:/|,|and|or|&)\\s*\\bmake\\b", label: "Make+Zapier", weight: 25}
+      - {term: "zapier", weight: 25}
+      - {term: "ai automation", weight: 30}
+      - {term: "workflow automation", weight: 20}
+      - {term: "python automation", weight: 20}
+      - {term: "automation", weight: 8}
+      - {term: "no-code", weight: 12}
+      - {term: "low-code", weight: 8}
+      - {term: "api integration", weight: 8}
+      - {term: "webhook", weight: 5}
+      - {term: "airtable", weight: 8}
+  ai:
+    cap: 45
+    rules:
+      - {term: "ai agent", weight: 25}
+      - {term: "agentic", weight: 15}
+      - {term: "chatbot", weight: 20}
+      - {term: "conversational ai", weight: 15}
+      - {term: "prompt engineering", weight: 12}
+      - {term: "llm", weight: 8}
+      - {term: "openai", weight: 8}
+      - {term: "gpt", weight: 6}
+      - {term: "python", weight: 8}
+      - {term: "heygen", weight: 10}
+      - {term: "elevenlabs", weight: 8}
+      - {term: "runway", weight: 8}
+      - {term: "midjourney", weight: 6}
+  video:
+    cap: 60
+    rules:
+      - {term: "ai video", weight: 30}
+      - {term: "video editor", weight: 25}
+      - {term: "video editing", weight: 20}
+      - {term: "content producer", weight: 25}
+      - {term: "content creator", weight: 15}
+      - {term: "short-form video", weight: 12}
+      - {term: "motion graphics", weight: 8}
+      - {term: "capcut", weight: 10}
+      - {term: "premiere pro", weight: 8}
+      - {term: "after effects", weight: 8}
+      - {term: "davinci resolve", weight: 8}
+  arabic:
+    cap: 50
+    rules:
+      - {term: "arabic", weight: 35}
+      - {regex: "عرب|العربية", label: "Arabic (عربي)", weight: 35}
+      - {term: "mena", weight: 10}
+      - {term: "middle east", weight: 6}
+  fit:
+    cap: 12
+    rules:
+      - {term: "junior", weight: 8}
+      - {term: "entry level", weight: 8}
+      - {term: "freelance", weight: 4}
+      - {term: "part-time", weight: 3}
+      - {term: "contract", weight: 3}
+
+penalties:
+  seniority:
+    cap: -35
+    rules:
+      - {term: "senior", weight: -20, desc_weight: -5}
+      - {term: "sr.", weight: -20, title_only: true}
+      - {regex: "\\blead\\b(?![\\s\\-]*gen)", label: "lead", weight: -15, title_only: true}   # not "lead generation"
+      - {term: "staff", weight: -15, title_only: true}
+      - {term: "principal", weight: -15, title_only: true}
+      - {term: "head of", weight: -20, title_only: true}
+      - {term: "director", weight: -20, title_only: true}
+      # minimum years only: "2 to 6 years" is NOT 6 years (lookbehinds skip the upper end of a range)
+      - {regex: "(?<![\\d.\\-–])(?<!to\\s)(?<!-\\s)(?<!–\\s)(?:[5-9]|1[0-5])\\s*\\+?\\s*(?:(?:-|–|to)\\s*\\d{1,2}\\s*\\+?\\s*)?years?", label: "5+ years", weight: -20}
+      - {regex: "(?<![\\d.\\-–])(?<!to\\s)(?<!-\\s)(?<!–\\s)4\\s*\\+?\\s*(?:(?:-|–|to)\\s*\\d{1,2}\\s*\\+?\\s*)?years?", label: "4+ years", weight: -12}
+  language:
+    cap: -40
+    rules:
+      # English at C1/C2 only — "Arabic proficiency C1" is fine
+      - {regex: "(?i:english)[^.\\n]{0,60}\\bC[12]\\b|\\bC[12]\\b[^.\\n]{0,30}(?i:english)", label: "English C1/C2", weight: -15, case_sensitive: true}
+      - {regex: "native[\\s\\-]+(?:level\\s+)?english|english[\\s\\-]+native|(?:near|close)[\\s\\-]+native\\s+english", label: "native English", weight: -20}
+  other:
+    cap: -50
+    rules:
+      - {term: "us citizen", weight: -40}
+      - {term: "us citizenship", weight: -40}
+      - {term: "security clearance", weight: -40}
+      - {term: "on-site", weight: -25}
+      - {term: "onsite", weight: -25}
+      - {term: "hybrid", weight: -15}
+      - {term: "relocation", weight: -8}
+
+# Penalties that need more than a keyword. `group` puts them under a penalty group's cap.
+detectors:
+  non_english:              # posting written in another language (Arabic postings are NOT penalised)
+    weight: -40
+    group: language
+  required_tools:           # tool listed as REQUIRED (Requirements section / "must" / "proficient")
+    weight: -12
+    group: tools_required
+    cap: -20
+    tools: ["Premiere Pro", "After Effects"]
+  region_list_excludes_iraq: # e.g. "We hire in the US, UK, Germany and Poland"
+    weight: -30
+    group: location

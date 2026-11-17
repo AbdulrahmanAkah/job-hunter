@@ -61,6 +61,27 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip().lower())
 
 
+# Words that show a sentence is about WHERE candidates may be (not e.g. where the offices are).
+_HIRING_CONTEXT = re.compile(
+    r"candidates?|applicants?|residents?|eligib|open\s+to|\bhir(?:e|es|ing)\b|employ|countries|"
+    r"time\s*zones?|located\s+in|you\s+(?:must|should|need\s+to)\s+(?:be|live)|we\s+accept|from\s+the\s+following",
+    re.I,
+)
+
+
+def region_list_excluding_iraq(text: str) -> str | None:
+    """Find a sentence that lists 2+ allowed places for candidates and leaves Iraq out,
+    e.g. "We hire in the US, UK, Germany and Poland". Returns the places found, or None.
+    (Hard restrictions are already dropped by classify(); this catches softer lists.)"""
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", (text or "")[:8000]):
+        if not _HIRING_CONTEXT.search(sentence) or _open_re.search(sentence):
+            continue
+        places = {m.group(0).lower() for m in _title_place_re.finditer(sentence)}
+        if len(places) >= 2:
+            return ", ".join(sorted(places))
+    return None
+
+
 def classify(location, title: str = "", description: str = "") -> tuple[str, str]:
     """Classify a job. `location` may be a string or a list of country names
     (Himalayas style: empty list = worldwide).
