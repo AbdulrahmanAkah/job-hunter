@@ -1,0 +1,96 @@
+# Job Hunter configuration — edit freely.
+#
+# search_terms: sent to source APIs that support keyword search (Himalayas).
+#   Other sources are fetched as whole feeds and filtered locally.
+# positive / negative: scoring rules. Each rule is either
+#   term:  plain phrase, case-insensitive, matched as whole words
+#   regex: a Python regular expression (case-insensitive)
+# A match in the TITLE counts 1.5x. Final score is clamped to 0..100.
+# A job must match at least one positive rule to be kept at all.
+
+search_terms:
+  - AI automation
+  - n8n
+  - Make.com
+  - Zapier
+  - AI agent
+  - chatbot
+  - Python automation
+  - AI video
+  - video editor
+  - content producer
+  - Arabic
+
+remotive_searches:   # Remotive asks for max ~4 calls/day — keep this list at 4 or fewer
+  - automation
+  - video
+  - arabic
+  - ai agent
+
+max_age_days: 30      # ignore postings older than this (when the source gives a date)
+min_score: 30         # jobs scoring below this are skipped
+top_n_for_claude: 15
+description_chars_for_claude: 1200
+
+positive:
+  # --- automation / AI (high) ---
+  - {term: "n8n", weight: 35}
+  - {term: "make.com", weight: 30}
+  - {term: "integromat", weight: 30}
+  - {regex: "\\bmake\\b\\s*(?:/|,|and|or|&)\\s*zapier|zapier\\s*(?:/|,|and|or|&)\\s*\\bmake\\b", label: "Make+Zapier", weight: 30}
+  - {term: "zapier", weight: 30}
+  - {term: "ai agent", weight: 30}   # plurals ("ai agents") match automatically
+  - {term: "agentic", weight: 20}
+  - {term: "ai automation", weight: 35}
+  - {term: "workflow automation", weight: 25}
+  - {term: "automation", weight: 10}
+  - {term: "no-code", weight: 15}
+  - {term: "low-code", weight: 10}
+  - {term: "chatbot", weight: 25}
+  - {term: "python", weight: 10}
+  - {term: "python automation", weight: 25}
+  - {term: "llm", weight: 8}
+  - {term: "openai", weight: 10}
+  - {term: "gpt", weight: 8}
+  - {term: "prompt engineering", weight: 15}
+  - {term: "api integration", weight: 10}
+  - {term: "airtable", weight: 10}
+  # --- video / content (high) ---
+  - {term: "video editor", weight: 30}
+  - {term: "video editing", weight: 25}
+  - {term: "ai video", weight: 35}
+  - {term: "content producer", weight: 30}
+  - {term: "content creator", weight: 20}
+  - {term: "premiere pro", weight: 15}
+  - {term: "after effects", weight: 15}
+  - {term: "capcut", weight: 15}
+  - {term: "davinci resolve", weight: 15}
+  - {term: "runway", weight: 10}
+  - {term: "heygen", weight: 15}
+  - {term: "elevenlabs", weight: 10}
+  # --- Arabic (high) ---
+  - {term: "arabic", weight: 35}
+  - {term: "arabic-speaking", weight: 35}
+  - {regex: "عرب|العربية", label: "Arabic (عربي)", weight: 35}
+  - {term: "mena", weight: 15}
+  - {term: "middle east", weight: 10}
+  # --- seniority that suits ---
+  - {term: "junior", weight: 10}
+  - {term: "entry level", weight: 10}
+  - {term: "freelance", weight: 5}
+  - {term: "contract", weight: 3}
+
+negative:
+  - {term: "senior", weight: -10}
+  - {term: "staff engineer", weight: -15}
+  - {term: "principal", weight: -15}
+  - {term: "head of", weight: -10}
+  - {term: "director", weight: -15}
+  - {regex: "(?:[5-9]|1\\d)\\+?\\s*(?:-\\s*\\d+\\s*)?years", label: "5+ years", weight: -20}
+  - {term: "us citizen", weight: -40}
+  - {term: "us citizenship", weight: -40}
+  - {term: "security clearance", weight: -40}
+  - {term: "on-site", weight: -30}
+  - {term: "onsite", weight: -30}
+  - {term: "hybrid", weight: -20}
+  - {term: "relocation", weight: -10}
